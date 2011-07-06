@@ -226,7 +226,7 @@
 	NSString *uuidString = [(NSString*)CFUUIDCreateString(nil, uuid) autorelease];
 	CFRelease(uuid);
 	NSString *stringBoundary = [NSString stringWithFormat:@"0xKhTmLbOuNdArY-%@",uuidString];
-	
+	[uuidString release];
 	[self addRequestHeader:@"Content-Type" value:[NSString stringWithFormat:@"multipart/form-data; charset=%@; boundary=%@", charset, stringBoundary]];
 	
 	[self appendPostString:[NSString stringWithFormat:@"--%@\r\n",stringBoundary]];

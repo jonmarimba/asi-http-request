@@ -3159,7 +3159,7 @@ static NSOperationQueue *sharedQueue = nil;
 	
 	if ([self complete] || [self isCancelled]) {
 		[[self cancelledLock] unlock];
-		[pool release];
+		[pool drain];
 		return;
 	}
 
@@ -3196,7 +3196,7 @@ static NSOperationQueue *sharedQueue = nil;
 	}
 
 	CFRelease(self);
-	[pool release];
+	[pool drain];
 }
 
 - (BOOL)willAskDelegateToConfirmRedirect
@@ -4771,7 +4771,7 @@ static NSOperationQueue *sharedQueue = nil;
 	while (runAlways) {
 		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 		CFRunLoopRun();
-		[pool release];
+		[pool drain];
 	}
 
 	// Should never be called, but anyway
