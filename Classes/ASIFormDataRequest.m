@@ -223,7 +223,7 @@
 	
 	// We don't bother to check if post data contains the boundary, since it's pretty unlikely that it does.
 	CFUUIDRef uuid = CFUUIDCreate(nil);
-	NSString *uuidString = [(NSString*)CFUUIDCreateString(nil, uuid) autorelease];
+	NSString *uuidString = (NSString*)CFUUIDCreateString(nil, uuid);
 	CFRelease(uuid);
 	NSString *stringBoundary = [NSString stringWithFormat:@"0xKhTmLbOuNdArY-%@",uuidString];
 	[uuidString release];
