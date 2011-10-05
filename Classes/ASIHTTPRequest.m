@@ -1519,7 +1519,9 @@ static NSOperationQueue *sharedQueue = nil;
 			[self setLastBytesSent:totalBytesSent];	
 			
 			// Find out how much data we've uploaded so far
-			[self setTotalBytesSent:[NSMakeCollectable([(NSNumber *)CFReadStreamCopyProperty((CFReadStreamRef)[self readStream], kCFStreamPropertyHTTPRequestBytesWrittenCount) autorelease]) unsignedLongLongValue]];
+            NSNumber *aTotalBytesSent = NSMakeCollectable((NSNumber *)CFReadStreamCopyProperty((CFReadStreamRef)[self readStream], kCFStreamPropertyHTTPRequestBytesWrittenCount));
+			[self setTotalBytesSent:[aTotalBytesSent unsignedLongLongValue]];
+            [aTotalBytesSent release];
 			if (totalBytesSent > lastBytesSent) {
 				
 				// We've uploaded more data,  reset the timeout
@@ -2238,7 +2240,8 @@ static NSOperationQueue *sharedQueue = nil;
 		
 		NSString *connectionHeader = [[[self responseHeaders] objectForKey:@"Connection"] lowercaseString];
 
-		NSString *httpVersion = NSMakeCollectable([(NSString *)CFHTTPMessageCopyVersion(message) autorelease]);
+		NSString *httpVersion = NSMakeCollectable((NSString *)CFHTTPMessageCopyVersion(message));
+        
 		
 		// Don't re-use the connection if the server is HTTP 1.0 and didn't send Connection: Keep-Alive
 		if (![httpVersion isEqualToString:(NSString *)kCFHTTPVersion1_0] || [connectionHeader isEqualToString:@"keep-alive"]) {
@@ -2275,8 +2278,8 @@ static NSOperationQueue *sharedQueue = nil;
 				}
 			}
 		}
+        [httpVersion autorelease];
 	}
-
 	CFRelease(message);
 	[self performSelectorOnMainThread:@selector(requestReceivedResponseHeaders:) withObject:[[[self responseHeaders] copy] autorelease] waitUntilDone:[NSThread isMainThread]];
 }
@@ -3385,7 +3388,9 @@ static NSOperationQueue *sharedQueue = nil;
 	[progressLock lock];	
 	// Find out how much data we've uploaded so far
 	[self setLastBytesSent:totalBytesSent];	
-	[self setTotalBytesSent:[NSMakeCollectable([(NSNumber *)CFReadStreamCopyProperty((CFReadStreamRef)[self readStream], kCFStreamPropertyHTTPRequestBytesWrittenCount) autorelease]) unsignedLongLongValue]];
+    NSNumber *bytesNum = NSMakeCollectable((NSNumber *)CFReadStreamCopyProperty((CFReadStreamRef)[self readStream], kCFStreamPropertyHTTPRequestBytesWrittenCount));
+	[self setTotalBytesSent:[bytesNum unsignedLongLongValue]];
+    [bytesNum release];
 	[self setComplete:YES];
 	if (![self contentLength]) {
 		[self setContentLength:[self totalBytesRead]];
@@ -3629,8 +3634,7 @@ static NSOperationQueue *sharedQueue = nil;
 - (void)handleStreamError
 
 {
-	NSError *underlyingError = NSMakeCollectable([(NSError *)CFReadStreamCopyError((CFReadStreamRef)[self readStream]) autorelease]);
-
+	NSError *underlyingError = NSMakeCollectable((NSError *)CFReadStreamCopyError((CFReadStreamRef)[self readStream]));
 	if (![self error]) { // We may already have handled this error
 		
 		// First, check for a 'socket not connected', 'broken pipe' or 'connection lost' error
@@ -3641,6 +3645,7 @@ static NSOperationQueue *sharedQueue = nil;
 		if (([[underlyingError domain] isEqualToString:NSPOSIXErrorDomain] && ([underlyingError code] == ENOTCONN || [underlyingError code] == EPIPE)) 
 			|| ([[underlyingError domain] isEqualToString:(NSString *)kCFErrorDomainCFNetwork] && [underlyingError code] == -1005)) {
 			if ([self retryUsingNewConnection]) {
+                [underlyingError release];
 				return;
 			}
 		}
@@ -3661,6 +3666,7 @@ static NSOperationQueue *sharedQueue = nil;
 		[self cancelLoad];
 	}
 	[self checkRequestStatus];
+    [underlyingError release];
 }
 
 #pragma mark managing the read stream
@@ -3807,13 +3813,14 @@ static NSOperationQueue *sharedQueue = nil;
 		} else {
 
 #if TARGET_OS_IPHONE
-			NSDictionary *proxySettings = NSMakeCollectable([(NSDictionary *)CFNetworkCopySystemProxySettings() autorelease]);
+			NSDictionary *proxySettings = NSMakeCollectable((NSDictionary *)CFNetworkCopySystemProxySettings());
 #else
-			NSDictionary *proxySettings = NSMakeCollectable([(NSDictionary *)SCDynamicStoreCopyProxies(NULL) autorelease]);
+			NSDictionary *proxySettings = NSMakeCollectable((NSDictionary *)SCDynamicStoreCopyProxies(NULL));
 #endif
+            [proxySettings autorelease];
 
-			proxies = NSMakeCollectable([(NSArray *)CFNetworkCopyProxiesForURL((CFURLRef)[self url], (CFDictionaryRef)proxySettings) autorelease]);
-
+			proxies = NSMakeCollectable((NSArray *)CFNetworkCopyProxiesForURL((CFURLRef)[self url], (CFDictionaryRef)proxySettings));
+            [proxies autorelease];
 			// Now check to see if the proxy settings contained a PAC url, we need to run the script to get the real list of proxies if so
 			NSDictionary *settings = [proxies objectAtIndex:0];
 			if ([settings objectForKey:(NSString *)kCFProxyAutoConfigurationURLKey]) {
@@ -3964,13 +3971,14 @@ static NSOperationQueue *sharedQueue = nil;
 
 		// Obtain the list of proxies by running the autoconfiguration script
 		CFErrorRef err = NULL;
-		NSArray *proxies = NSMakeCollectable([(NSArray *)CFNetworkCopyProxiesForAutoConfigurationScript((CFStringRef)script,(CFURLRef)[self url], &err) autorelease]);
+		NSArray *proxies = NSMakeCollectable((NSArray *)CFNetworkCopyProxiesForAutoConfigurationScript((CFStringRef)script,(CFURLRef)[self url], &err));
 		if (!err && [proxies count] > 0) {
 			NSDictionary *settings = [proxies objectAtIndex:0];
 			[self setProxyHost:[settings objectForKey:(NSString *)kCFProxyHostNameKey]];
 			[self setProxyPort:[[settings objectForKey:(NSString *)kCFProxyPortNumberKey] intValue]];
 			[self setProxyType:[settings objectForKey:(NSString *)kCFProxyTypeKey]];
 		}
+        [proxies release];
 	}
 }
 
@@ -4441,11 +4449,12 @@ static NSOperationQueue *sharedQueue = nil;
 	// Borrowed from http://stackoverflow.com/questions/2439020/wheres-the-iphone-mime-type-database
 	CFStringRef UTI = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, (CFStringRef)[path pathExtension], NULL);
     CFStringRef MIMEType = UTTypeCopyPreferredTagWithClass (UTI, kUTTagClassMIMEType);
+    NSString *nssMIMEType = NSMakeCollectable((NSString *)MIMEType);
     CFRelease(UTI);
-	if (!MIMEType) {
+	if (!nssMIMEType) {
 		return @"application/octet-stream";
 	}
-    return NSMakeCollectable([(NSString *)MIMEType autorelease]);
+    return [nssMIMEType autorelease];
 }
 
 #pragma mark bandwidth measurement / throttling
